@@ -362,6 +362,7 @@ function App() {
                             maxBoundsViscosity={1.0}
                             minZoom={2}
                             worldCopyJump={false}
+                            preferCanvas={true}
                         >
                             <TileLayer
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
