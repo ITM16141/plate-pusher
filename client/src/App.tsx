@@ -345,7 +345,14 @@ function App() {
                     {isGameOver && <button onClick={handleReset} style={{ padding: '10px 20px', fontSize: '1rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', marginBottom: '10px' }}>復活する</button>}
 
                     <div style={{ height: '480px', border: '2px solid #333', borderRadius: '8px', overflow: 'hidden' }}>
-                        <MapContainer center={[20.0, 0.0]} zoom={2} minZoom={2} maxZoom={8} style={{ width: '100%', height: '100%', backgroundColor: '#aad3df' }}>
+                        <MapContainer
+                            center={[20, 0]}
+                            zoom={2}
+                            style={{ height: '100%' }}
+                            // ★以下を追加（世界地図を1枚の矩形として固定）
+                            maxBounds={[[-90, -180], [90, 180]]}
+                            worldCopyJump={false}
+                        >
                             <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                             <MapClickHandler onClick={handleMapClick} disabled={!isMyTurn || isGameOver} />
                             {location && <CircleMarker center={location} radius={12} pathOptions={{ color: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillColor: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillOpacity: 0.5 }} />}
