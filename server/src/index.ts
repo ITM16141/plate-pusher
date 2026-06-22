@@ -212,15 +212,23 @@ io.on('connection', (socket) => {
         let activeZoneName = '平穏なプレート中央';
 
         DANGER_ZONES.forEach(z => {
-            const dLat = data.lat - z.lat;
+            const dLat = Math.abs(data.lat - z.lat);
             let dLng = Math.abs(data.lng - z.lng);
+
+            // 経度の回り込み対応（地球の裏側を通る最短距離）
             dLng = Math.min(dLng, 360 - dLng);
+
+            // 距離を計算（ピタゴラスの定理）
             const dist = Math.sqrt(Math.pow(dLat, 2) + Math.pow(dLng, 2));
 
-            // 距離が近いほど危険度が上がる（影響範囲内なら最大1.0）
-            const danger = Math.max(0, 1 - dist / z.influenceRange);
-            maxDanger = Math.max(maxDanger, danger);
-            activeZoneName = z.name;
+            // 危険度の算出（距離が0なら1.0、範囲限界なら0.0）
+            const danger = Math.max(0, 1 - (dist / z.influenceRange));
+
+            // 最も高い危険度を採用する
+            if (danger > maxDanger) {
+                maxDanger = danger;
+                activeZoneName = z.name;
+            }
         });
 
         // ★ここがポイント！
