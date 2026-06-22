@@ -212,19 +212,17 @@ io.on('connection', (socket) => {
         let activeZoneName = '平穏なプレート中央';
 
         DANGER_ZONES.forEach(z => {
+            // ★修正：地球の裏側を考慮した360度計算を廃止
+            // 単純に緯度と経度の差をとるだけでOKになります！
             const dLat = Math.abs(data.lat - z.lat);
-            let dLng = Math.abs(data.lng - z.lng);
+            const dLng = Math.abs(data.lng - z.lng);
 
-            // 経度の回り込み対応（地球の裏側を通る最短距離）
-            dLng = Math.min(dLng, 360 - dLng);
-
-            // 距離を計算（ピタゴラスの定理）
+            // 三平方の定理
             const dist = Math.sqrt(Math.pow(dLat, 2) + Math.pow(dLng, 2));
 
-            // 危険度の算出（距離が0なら1.0、範囲限界なら0.0）
+            // 危険度の算出（影響範囲外なら0になる）
             const danger = Math.max(0, 1 - (dist / z.influenceRange));
 
-            // 最も高い危険度を採用する
             if (danger > maxDanger) {
                 maxDanger = danger;
                 activeZoneName = z.name;
@@ -233,7 +231,7 @@ io.on('connection', (socket) => {
 
         // ★ここがポイント！
         // ゾーンがない場所でも、最低限のリスク（例えば10%）をベースとして加える
-        const baseRisk = 0.1;
+        const baseRisk = 0.05;
         // さらに、マップの広範囲をカバーするためにゾーン影響度を少し増幅させる
         const finalDanger = Math.min(maxDanger + baseRisk, 1.0);
 

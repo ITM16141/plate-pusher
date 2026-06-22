@@ -349,11 +349,15 @@ function App() {
                             center={[20, 0]}
                             zoom={2}
                             style={{ height: '100%' }}
-                            // ★以下を追加（世界地図を1枚の矩形として固定）
                             maxBounds={[[-90, -180], [90, 180]]}
+                            maxBoundsViscosity={1.0}
+                            minZoom={2}
                             worldCopyJump={false}
                         >
-                            <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                            <TileLayer
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                noWrap={true}
+                            />
                             <MapClickHandler onClick={handleMapClick} disabled={!isMyTurn || isGameOver} />
                             {location && <CircleMarker center={location} radius={12} pathOptions={{ color: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillColor: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillOpacity: 0.5 }} />}
                         </MapContainer>
