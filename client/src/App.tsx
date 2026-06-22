@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, useMapEvents, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LatLng } from 'leaflet';
@@ -57,6 +57,16 @@ function App() {
             .then((res) => res.json())
             .then((data) => setPlateData(data));
     }, []);
+
+    const plateLayer = useMemo(() => {
+        if (!plateData) return null;
+        return (
+            <GeoJSON
+                data={plateData}
+                style={{ color: '#ffeb3b', weight: 2, opacity: 0.7 }}
+            />
+        );
+    }, [plateData]);
 
     useEffect(() => {
         if (!isPlaying || !mode) return;
@@ -362,23 +372,13 @@ function App() {
                             maxBoundsViscosity={1.0}
                             minZoom={2}
                             worldCopyJump={false}
-                            preferCanvas={true}
                         >
                             <TileLayer
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 noWrap={true}
                             />
 
-                            {plateData && (
-                                <GeoJSON
-                                    data={plateData}
-                                    style={{
-                                        color: '#ffeb3b',
-                                        weight: 2,
-                                        opacity: 0.7
-                                    }}
-                                />
-                            )}
+                            {plateLayer}
 
                             <MapClickHandler onClick={handleMapClick} disabled={!isMyTurn || isGameOver} />
                             {location && <CircleMarker center={location} radius={12} pathOptions={{ color: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillColor: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillOpacity: 0.5 }} />}
