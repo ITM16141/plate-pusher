@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
+        // 環境変数 FRONTEND_URL があればそれを許可、なければローカル開発用URLを許可
         origin: [process.env.FRONTEND_URL || "http://localhost:5173"],
         methods: ["GET", "POST"]
     }
@@ -31,15 +32,15 @@ interface Player {
     score: number;
     lives: number;
     isAlive: boolean;
-    isHost: boolean;   // ホスト判定
-    isReady: boolean;  // 準備完了判定
+    isHost: boolean;
+    isReady: boolean;
 }
 
 interface Room {
     players: Player[];
     currentTurnIdx: number;
-    gameStarted: boolean; // ゲームが開始されているか
-    countdownTimer: NodeJS.Timeout | null; // 自動開始用タイマー
+    gameStarted: boolean;
+    countdownTimer: NodeJS.Timeout | null;
     countdownSeconds: number;
 }
 const rooms: { [key: string]: Room } = {};
@@ -48,7 +49,7 @@ function generateRoomCode(): string {
     return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
 
-// 部屋の状態を全員に一括同期するヘルパー関数
+// 部屋の状態を全員に一括同期する
 function sendRoomUpdate(roomCode: string) {
     const room = rooms[roomCode];
     if (!room) return;
@@ -119,7 +120,7 @@ io.on('connection', (socket) => {
             rooms[currentRoom] = {
                 players: [{ id: socket.id, name: playerName, score: 0, lives: 3, isAlive: true, isHost: true, isReady: true }],
                 currentTurnIdx: 0,
-                gameStarted: true, // シングルは最初から開始状態
+                gameStarted: true,
                 countdownTimer: null,
                 countdownSeconds: 0
             };
@@ -139,7 +140,6 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            // 人数制限およびゲーム開始済みのチェック
             if (rooms[currentRoom]) {
                 if (rooms[currentRoom].players.length >= 16) {
                     socket.emit('error_message', 'ルームが満員（上限16人）のため入室できません。');
@@ -161,7 +161,7 @@ io.on('connection', (socket) => {
                 lives: 3,
                 isAlive: true,
                 isHost,
-                isReady: isHost // ホストは最初から準備完了扱い
+                isReady: isHost
             });
 
             socket.join(currentRoom);
@@ -170,14 +170,12 @@ io.on('connection', (socket) => {
             io.to(currentRoom).emit('system_message', `${playerName} さんが入室しました。`);
             sendRoomUpdate(currentRoom);
 
-            // 16人に達したら自動カウントダウン開始
             if (rooms[currentRoom].players.length === 16) {
                 startRoomCountdown(currentRoom);
             }
         }
     });
 
-    // ゲスト用の準備完了トグル
     socket.on('toggle_ready', () => {
         const room = rooms[currentRoom];
         if (!room || room.gameStarted || room.players.length === 16) return;
@@ -188,12 +186,10 @@ io.on('connection', (socket) => {
         sendRoomUpdate(currentRoom);
     });
 
-    // ホスト用の手動ゲーム開始
     socket.on('start_game', () => {
         const room = rooms[currentRoom];
         if (!room || room.gameStarted || room.players.length === 16) return;
 
-        // 送信者が本当にホストか確認
         const player = room.players.find(p => p.id === socket.id);
         if (!player || !player.isHost) return;
 
@@ -298,13 +294,11 @@ io.on('connection', (socket) => {
                 if (room.countdownTimer) clearInterval(room.countdownTimer);
                 delete rooms[currentRoom];
             } else {
-                // ホストが抜けたら次の生存者に権限移譲
                 if (wasHost && room.players.length > 0) {
                     room.players[0].isHost = true;
                     room.players[0].isReady = true;
                 }
 
-                // 人数が16人未満に減ったらカウントダウンをキャンセル
                 if (room.players.length < 16 && room.countdownTimer) {
                     clearInterval(room.countdownTimer);
                     room.countdownTimer = null;

@@ -4,7 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import { LatLng } from 'leaflet';
 import { io, Socket } from 'socket.io-client';
 
-const SERVER_URL =  import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+// 環境変数 VITE_SERVER_URL があれば使い、なければローカルホストを使用
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 let socket: Socket;
 
 interface Player { id: string; name: string; score: number; lives: number; isAlive: boolean; isHost: boolean; isReady: boolean; }
@@ -23,10 +24,11 @@ function App() {
     const [name, setName] = useState<string>('');
     const [mode, setMode] = useState<'single' | 'random' | 'create_private' | 'join_private' | null>(null);
 
-    // 画面管理ステート
-    const [isPlaying, setIsPlaying] = useState<boolean>(false);       // 部屋に入っているか
-    const [isGameStarted, setIsGameStarted] = useState<boolean>(false); // ゲーム本編が開始しているか
-    const [isHost, setIsHost] = useState<boolean>(false);             // 自分がホストか
+    // 画面状態管理
+    const [isPlaying, setIsPlaying] = useState<boolean>(false);
+    const [isGameStarted, setIsGameStarted] = useState<boolean>(false);
+    const [isHost, setIsHost] = useState<boolean>(false);
+    const [isConnected, setIsConnected] = useState<boolean>(false); // サーバー接続完了フラグ
 
     const [inputRoomCode, setInputRoomCode] = useState<string>('');
     const [activeRoomCode, setActiveRoomCode] = useState<string>('');
@@ -50,6 +52,7 @@ function App() {
         socket = io(SERVER_URL);
 
         socket.on('connect', () => {
+            setIsConnected(true); // 確実に繋がってから参加リクエストを送信
             socket.emit('join_game', { mode, name, roomCode: inputRoomCode });
         });
 
@@ -63,7 +66,6 @@ function App() {
             setCurrentTurnPlayerId(data.turnPlayerId);
             setCountdownSeconds(data.countdownSeconds);
 
-            // 途中でゲーム開始状態に同期された場合
             if (data.gameStarted) {
                 setIsGameStarted(true);
             }
@@ -72,14 +74,13 @@ function App() {
             if (myData) {
                 setScore(myData.score);
                 setMyLives(myData.lives);
-                setIsHost(myData.isHost); // ホスト交代に対応
+                setIsHost(myData.isHost);
                 if (!myData.isAlive) {
                     setIsGameOver(true);
                 }
             }
         });
 
-        // 明示的なゲーム開始通知
         socket.on('game_start_confirmed', (data: { turnPlayerId: string }) => {
             setIsGameStarted(true);
             setCurrentTurnPlayerId(data.turnPlayerId);
@@ -151,13 +152,15 @@ function App() {
         setActiveRoomCode('');
         setCurrentTurnPlayerId('');
         setCountdownSeconds(0);
+        setIsConnected(false); // 接続フラグをクリア
     };
 
     const isMyTurn = socket && socket.id === currentTurnPlayerId;
     const currentTurnPlayerName = players.find(p => p.id === currentTurnPlayerId)?.name || '対戦相手';
     const isRoomFull = players.length >= 16;
-    const amIReady = players.find(p => p.id === socket.id)?.isReady || false;
+    const amIReady = players.find(p => p.id === socket?.id)?.isReady || false;
 
+    // サーバーのリスト同期が一瞬遅れても画面が空にならないよう、仮の自分を生成するロジック
     const displayPlayers = players.length > 0
         ? players
         : [{ id: 'temp-me', name: name || 'あなた', score: 0, lives: 3, isAlive: true, isHost: isHost, isReady: isHost }];
@@ -185,21 +188,36 @@ function App() {
         );
     }
 
+    // 1.5 サーバー接続待ち画面（虚無ロビー対策）
+    if (isPlaying && !isConnected) {
+        return (
+            <div style={{ fontFamily: 'sans-serif', padding: '50px', backgroundColor: '#eef2f5', minHeight: '100vh', textAlign: 'center' }}>
+                <h2 style={{ fontSize: '2rem', color: '#1976d2' }}>📡 サーバーに接続しています...</h2>
+                <p style={{ color: '#666', fontSize: '1.1rem', marginTop: '20px', lineHeight: '1.6' }}>
+                    サーバーの応答を待機中です。<br />
+                    <strong>※無料サーバーを利用している場合、スリープからの復帰に50秒〜1分ほどかかる場合があります。</strong><br />
+                    画面を閉じずにそのまま少々お待ちください！
+                </p>
+                <button onClick={handleLeaveTitle} style={{ marginTop: '30px', padding: '10px 20px', fontSize: '1rem', backgroundColor: '#e0e0e0', color: '#333', border: '1px solid #aaa', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    🚪 キャンセルして戻る
+                </button>
+            </div>
+        );
+    }
+
     // 2. 待機ロビー画面（マルチプレイ時、ゲーム開始前）
     if (isPlaying && !isGameStarted) {
         return (
             <div style={{ fontFamily: 'sans-serif', padding: '30px', backgroundColor: '#eef2f5', minHeight: '100vh', textAlign: 'center' }}>
-                {/* players.length ではなく displayPlayers.length にする */}
-                <h2>🎮 对戦待機ロビー ({displayPlayers.length} / 16人)</h2>
+                <h2>🎮 対戦待機ロビー ({displayPlayers.length} / 16人)</h2>
                 {activeRoomCode && activeRoomCode !== 'SINGLE' && (
                     <div style={{ margin: '15px 0' }}>
-                        <span style={{ backgroundColor: '#333', color: 'white', padding: '10px 20px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>
-                            ROOM CODE: {activeRoomCode}
-                        </span>
+            <span style={{ backgroundColor: '#333', color: 'white', padding: '10px 20px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>
+              ROOM CODE: {activeRoomCode}
+            </span>
                     </div>
                 )}
 
-                {/* 16人満員時のカウントダウン表示 */}
                 {countdownSeconds > 0 && (
                     <div style={{ backgroundColor: '#ffeb3b', padding: '15px', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.3rem', border: '2px solid #f57f17', color: '#b71c1c', maxWidth: '500px', margin: '15px auto' }}>
                         🔥 ルームが満員になりました！あと {countdownSeconds} 秒で自動開始します！
@@ -209,12 +227,11 @@ function App() {
                 <div style={{ maxWidth: '600px', margin: '30px auto', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
                     <h3>参加プレイヤー一覧</h3>
                     <ul style={{ listStyle: 'none', padding: 0, textAlign: 'left' }}>
-                        {/* ★ players.map ではなく displayPlayers.map に変更 */}
                         {displayPlayers.map((p) => (
                             <li key={p.id} style={{ padding: '12px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontWeight: (p.id === socket?.id || p.id === 'temp-me') ? 'bold' : 'normal', color: (p.id === socket?.id || p.id === 'temp-me') ? '#1976d2' : '#333' }}>
-                                  {p.name} {(p.id === socket?.id || p.id === 'temp-me') && ' (あなた)'}
-                                </span>
+                <span style={{ fontWeight: (p.id === socket?.id || p.id === 'temp-me') ? 'bold' : 'normal', color: (p.id === socket?.id || p.id === 'temp-me') ? '#1976d2' : '#333' }}>
+                  {p.name} {(p.id === socket?.id || p.id === 'temp-me') && ' (あなた)'}
+                </span>
                                 <div>
                                     {p.isHost && <span style={{ backgroundColor: '#e91e63', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem', marginRight: '5px', fontWeight: 'bold' }}>👑 ホスト</span>}
                                     {p.isReady ? (
@@ -228,13 +245,11 @@ function App() {
                     </ul>
                 </div>
 
-                {/* アクションボタン */}
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '20px' }}>
                     <button onClick={handleLeaveTitle} style={{ padding: '12px 24px', fontSize: '1rem', backgroundColor: '#e0e0e0', color: '#333', border: '1px solid #aaa', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                         🚪 タイトルに戻る
                     </button>
 
-                    {/* 自分がプレイヤーリストの中で host かどうかを直接判定する（確実な方法） */}
                     {players.find(p => p.id === socket?.id)?.isHost ? (
                         <button
                             onClick={handleStartGame}
@@ -250,7 +265,7 @@ function App() {
                             style={{
                                 padding: '12px 30px',
                                 fontSize: '1.1rem',
-                                backgroundColor: isRoomFull ? '#999' : amIReady ? '#e53935' : '#ff9800', // 準備完了時は赤、未完了はオレンジ
+                                backgroundColor: isRoomFull ? '#999' : amIReady ? '#e53935' : '#ff9800',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '6px',
@@ -323,7 +338,7 @@ function App() {
                             {players.sort((a,b) => b.score - a.score).map((p, idx) => (
                                 <li key={p.id} style={{
                                     padding: '8px 10px', borderBottom: '1px solid #eee',
-                                    fontWeight: p.id === socket.id ? 'bold' : 'normal',
+                                    fontWeight: p.id === socket?.id ? 'bold' : 'normal',
                                     color: p.isAlive ? '#333' : '#999',
                                     textDecoration: p.isAlive ? 'none' : 'line-through',
                                     backgroundColor: p.id === currentTurnPlayerId ? '#fff9c4' : 'transparent',
