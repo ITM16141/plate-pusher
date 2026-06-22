@@ -19,10 +19,18 @@ interface DangerZone {
     name: string; lat: number; lng: number; influenceRange: number;
 }
 const DANGER_ZONES: DangerZone[] = [
-    { name: '日本海溝・南海トラフ（日本近海）', lat: 34.0, lng: 138.0, influenceRange: 8.0 },
-    { name: 'サンアンドレアス断層（北米西海岸）', lat: 36.0, lng: -120.0, influenceRange: 8.0 },
-    { name: 'チリ海溝（南米西海岸）', lat: -30.0, lng: -72.0, influenceRange: 12.0 },
-    { name: 'スマトラ海溝（インドネシア付近）', lat: -2.0, lng: 101.0, influenceRange: 10.0 },
+    // 太平洋ベルトライン
+    { name: '日本海溝', lat: 38.0, lng: 142.0, influenceRange: 15.0 },
+    { name: '南海トラフ', lat: 32.0, lng: 135.0, influenceRange: 15.0 },
+    { name: 'アリューシャン列島', lat: 52.0, lng: -170.0, influenceRange: 15.0 },
+    { name: 'サンアンドレアス断層', lat: 36.0, lng: -120.0, influenceRange: 15.0 },
+    { name: 'チリ海溝', lat: -30.0, lng: -72.0, influenceRange: 20.0 },
+    { name: 'トンガ海溝', lat: -20.0, lng: 175.0, influenceRange: 20.0 },
+
+    // その他主要な場所
+    { name: 'ヒマラヤ造山帯', lat: 30.0, lng: 80.0, influenceRange: 15.0 },
+    { name: 'スマトラ沖', lat: -2.0, lng: 101.0, influenceRange: 15.0 },
+    { name: 'アイスランド（大西洋中央海嶺）', lat: 65.0, lng: -20.0, influenceRange: 15.0 },
 ];
 
 interface Player {
@@ -195,36 +203,37 @@ io.on('connection', (socket) => {
     // ★ 修正：intensity（沈み込み度）を受け取って計算に使う
     socket.on('plate_subduct', (data: { lat: number; lng: number; intensity: number }) => {
         const room = rooms[currentRoom];
-        if (!room || !room.gameStarted) return;
+        if (!room || !room.gameStarted || room.players[room.currentTurnIdx].id !== socket.id) return;
 
         const currentTurnPlayer = room.players[room.currentTurnIdx];
         if (currentTurnPlayer.id !== socket.id) return;
 
-        let maxCalculatedDanger = 0;
+        let maxDanger = 0;
         let activeZoneName = '平穏なプレート中央';
 
-        DANGER_ZONES.forEach((zone) => {
-            const distance = Math.sqrt(Math.pow(data.lat - zone.lat, 2) + Math.pow(data.lng - zone.lng, 2));
-            const danger = Math.max(0, 1 - distance / zone.influenceRange);
-            if (danger > maxCalculatedDanger) {
-                maxCalculatedDanger = danger;
-                activeZoneName = zone.name;
-            }
+        DANGER_ZONES.forEach(z => {
+            const dLat = data.lat - z.lat;
+            let dLng = Math.abs(data.lng - z.lng);
+            dLng = Math.min(dLng, 360 - dLng);
+            const dist = Math.sqrt(Math.pow(dLat, 2) + Math.pow(dLng, 2));
+
+            // 距離が近いほど危険度が上がる（影響範囲内なら最大1.0）
+            const danger = Math.max(0, 1 - dist / z.influenceRange);
+            maxDanger = Math.max(maxDanger, danger);
+            activeZoneName = z.name;
         });
 
-        // 基礎危険度（最低でも5%のベースリスクを付与）
-        const baseDanger = maxCalculatedDanger > 0 ? maxCalculatedDanger : 0.05;
-        const intensityFactor = data.intensity / 100; // 0.0 ~ 1.0
+        // ★ここがポイント！
+        // ゾーンがない場所でも、最低限のリスク（例えば10%）をベースとして加える
+        const baseRisk = 0.1;
+        // さらに、マップの広範囲をカバーするためにゾーン影響度を少し増幅させる
+        const finalDanger = Math.min(maxDanger + baseRisk, 1.0);
 
-        // 引っ張り具合と場所の危険度から最終確率を計算（最大95%）
-        let finalProbability = baseDanger * intensityFactor * 2.0;
-        if (finalProbability > 0.95) finalProbability = 0.95;
-
-        const dangerPercentage = Math.round(finalProbability * 100);
-        const isEarthquake = Math.random() < finalProbability;
+        // 最終的な地震発生判定
+        const isEarthquake = Math.random() < (finalDanger * (data.intensity / 100) * 1.5);
 
         // スコア計算：引っ張った量(intensity)が多いほど、そして危険地帯であるほど高得点！
-        const gainedScore = isEarthquake ? 0 : Math.round(data.intensity * (1 + maxCalculatedDanger * 2));
+        const gainedScore = isEarthquake ? 0 : Math.round(data.intensity * (1 + maxDanger * 2));
 
         if (isEarthquake) {
             room.players = room.players.map(p => {
@@ -244,7 +253,7 @@ io.on('connection', (socket) => {
             io.to(currentRoom).emit('earthquake_result', {
                 targetPlayerId: socket.id,
                 isEarthquake: true,
-                dangerLevel: dangerPercentage,
+                dangerLevel: finalDanger,
                 triggeredZone: activeZoneName,
                 message: isDead
                     ? `【脱落】${playerName} さんが ${activeZoneName} で限界を超え、大地震を引き起こしました！`
@@ -268,7 +277,7 @@ io.on('connection', (socket) => {
             io.to(currentRoom).emit('earthquake_result', {
                 targetPlayerId: socket.id,
                 isEarthquake: false,
-                dangerLevel: dangerPercentage,
+                dangerLevel: finalDanger,
                 triggeredZone: activeZoneName,
                 gainedScore,
                 message: successMessage,
