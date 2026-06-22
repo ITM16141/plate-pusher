@@ -4,14 +4,18 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 
 const app = express();
-app.use(cors({origin: "*"}));
+app.use(cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+}));
 
 const PORT = process.env.PORT || 3000;
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        // 修正前：origin: [process.env.FRONTEND_URL || "http://localhost:5173"],
-        origin: "*", // ★ ここを "*" に書き換えて、環境変数に頼らずすべて許可する
+        // 環境変数 FRONTEND_URL があればそれを許可、なければローカル開発用URLを許可
+        origin: [process.env.FRONTEND_URL || "http://localhost:5173"],
         methods: ["GET", "POST"]
     }
 });
