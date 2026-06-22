@@ -158,6 +158,10 @@ function App() {
     const isRoomFull = players.length >= 16;
     const amIReady = players.find(p => p.id === socket.id)?.isReady || false;
 
+    const displayPlayers = players.length > 0
+        ? players
+        : [{ id: 'temp-me', name: name || 'あなた', score: 0, lives: 3, isAlive: true, isHost: isHost, isReady: isHost }];
+
     // 1. タイトル/ロビー選択画面
     if (!isPlaying) {
         return (
@@ -185,12 +189,13 @@ function App() {
     if (isPlaying && !isGameStarted) {
         return (
             <div style={{ fontFamily: 'sans-serif', padding: '30px', backgroundColor: '#eef2f5', minHeight: '100vh', textAlign: 'center' }}>
-                <h2>🎮 対戦待機ロビー ({players.length} / 16人)</h2>
+                {/* players.length ではなく displayPlayers.length にする */}
+                <h2>🎮 对戦待機ロビー ({displayPlayers.length} / 16人)</h2>
                 {activeRoomCode && activeRoomCode !== 'SINGLE' && (
                     <div style={{ margin: '15px 0' }}>
-            <span style={{ backgroundColor: '#333', color: 'white', padding: '10px 20px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>
-              ROOM CODE: {activeRoomCode}
-            </span>
+                        <span style={{ backgroundColor: '#333', color: 'white', padding: '10px 20px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>
+                            ROOM CODE: {activeRoomCode}
+                        </span>
                     </div>
                 )}
 
@@ -204,11 +209,12 @@ function App() {
                 <div style={{ maxWidth: '600px', margin: '30px auto', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
                     <h3>参加プレイヤー一覧</h3>
                     <ul style={{ listStyle: 'none', padding: 0, textAlign: 'left' }}>
-                        {players.map((p) => (
+                        {/* ★ players.map ではなく displayPlayers.map に変更 */}
+                        {displayPlayers.map((p) => (
                             <li key={p.id} style={{ padding: '12px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: p.id === socket.id ? 'bold' : 'normal', color: p.id === socket.id ? '#1976d2' : '#333' }}>
-                  {p.name} {p.id === socket.id && ' (あなた)'}
-                </span>
+                                <span style={{ fontWeight: (p.id === socket?.id || p.id === 'temp-me') ? 'bold' : 'normal', color: (p.id === socket?.id || p.id === 'temp-me') ? '#1976d2' : '#333' }}>
+                                  {p.name} {(p.id === socket?.id || p.id === 'temp-me') && ' (あなた)'}
+                                </span>
                                 <div>
                                     {p.isHost && <span style={{ backgroundColor: '#e91e63', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem', marginRight: '5px', fontWeight: 'bold' }}>👑 ホスト</span>}
                                     {p.isReady ? (
