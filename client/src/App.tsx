@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { LatLng } from 'leaflet';
 import { io, Socket } from 'socket.io-client';
 
-const SERVER_URL = 'http://localhost:3000';
+const SERVER_URL =  import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 let socket: Socket;
 
 interface Player { id: string; name: string; score: number; lives: number; isAlive: boolean; isHost: boolean; isReady: boolean; }
