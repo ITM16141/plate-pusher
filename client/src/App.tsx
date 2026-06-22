@@ -159,7 +159,6 @@ function App() {
     const currentTurnPlayerName = players.find(p => p.id === currentTurnPlayerId)?.name || '対戦相手';
     const isRoomFull = players.length >= 16;
     const amIReady = players.find(p => p.id === socket?.id)?.isReady || false;
-    const displayPlayers = players.length > 0 ? players : [{ id: 'temp-me', name: name || 'あなた', score: 0, lives: 3, isAlive: true, isHost: isHost, isReady: isHost }];
 
     // 1. タイトル画面
     if (!isPlaying) {
@@ -194,36 +193,69 @@ function App() {
         );
     }
 
-    // 2. 待機ロビー画面
+    // 2. 待機ロビー画面（マルチプレイ時、ゲーム開始前）
     if (isPlaying && !isGameStarted) {
         return (
             <div style={{ fontFamily: 'sans-serif', padding: '30px', backgroundColor: '#eef2f5', minHeight: '100vh', textAlign: 'center' }}>
-                <h2>🎮 対戦待機ロビー ({displayPlayers.length} / 16人)</h2>
+                <h2>🎮 対戦待機ロビー ({players.length} / 16人)</h2>
                 {activeRoomCode && activeRoomCode !== 'SINGLE' && (
                     <div style={{ margin: '15px 0' }}>
-                        <span style={{ backgroundColor: '#333', color: 'white', padding: '10px 20px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>ROOM CODE: {activeRoomCode}</span>
+            <span style={{ backgroundColor: '#333', color: 'white', padding: '10px 20px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>
+              ROOM CODE: {activeRoomCode}
+            </span>
                     </div>
                 )}
-                <div style={{ maxWidth: '600px', margin: '30px auto', backgroundColor: 'white', padding: '20px', borderRadius: '8px' }}>
+
+                {/* 16人満員時のカウントダウン表示 */}
+                {countdownSeconds > 0 && (
+                    <div style={{ backgroundColor: '#ffeb3b', padding: '15px', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.3rem', border: '2px solid #f57f17', color: '#b71c1c', maxWidth: '500px', margin: '15px auto' }}>
+                        🔥 ルームが満員になりました！あと {countdownSeconds} 秒で自動開始します！
+                    </div>
+                )}
+
+                <div style={{ maxWidth: '600px', margin: '30px auto', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                    <h3>参加プレイヤー一覧</h3>
                     <ul style={{ listStyle: 'none', padding: 0, textAlign: 'left' }}>
-                        {displayPlayers.map((p) => (
+                        {players.map((p) => (
                             <li key={p.id} style={{ padding: '12px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: (p.id === socket?.id || p.id === 'temp-me') ? 'bold' : 'normal', color: (p.id === socket?.id || p.id === 'temp-me') ? '#1976d2' : '#333' }}>
-                  {p.name} {(p.id === socket?.id || p.id === 'temp-me') && ' (あなた)'}
+                <span style={{ fontWeight: p.id === socket.id ? 'bold' : 'normal', color: p.id === socket.id ? '#1976d2' : '#333' }}>
+                  {p.name} {p.id === socket.id && ' (あなた)'}
                 </span>
                                 <div>
-                                    {p.isHost && <span style={{ backgroundColor: '#e91e63', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem', marginRight: '5px' }}>👑 ホスト</span>}
-                                    {p.isReady ? <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>✅ 準備完了</span> : <span style={{ color: '#ef6c00', fontWeight: 'bold' }}>⏳ 待機中</span>}
+                                    {p.isHost && <span style={{ backgroundColor: '#e91e63', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.8rem', marginRight: '5px', fontWeight: 'bold' }}>👑 ホスト</span>}
+                                    {p.isReady ? (
+                                        <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>✅ 準備完了</span>
+                                    ) : (
+                                        <span style={{ color: '#ef6c00', fontWeight: 'bold' }}>⏳ 待機中</span>
+                                    )}
                                 </div>
                             </li>
                         ))}
                     </ul>
                 </div>
+
+                {/* アクションボタン */}
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '20px' }}>
-                    {players.find(p => p.id === socket?.id)?.isHost ? (
-                        <button onClick={handleStartGame} disabled={isRoomFull} style={{ padding: '12px 30px', fontSize: '1.1rem', backgroundColor: '#4caf50', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🚀 ゲームを開始する</button>
+                    <button onClick={handleLeaveTitle} style={{ padding: '12px 24px', fontSize: '1rem', backgroundColor: '#e0e0e0', color: '#333', border: '1px solid #aaa', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                        🚪 タイトルに戻る
+                    </button>
+
+                    {isHost ? (
+                        <button
+                            onClick={handleStartGame}
+                            disabled={isRoomFull}
+                            style={{ padding: '12px 30px', fontSize: '1.1rem', backgroundColor: isRoomFull ? '#999' : '#4caf50', color: 'white', border: 'none', borderRadius: '6px', cursor: isRoomFull ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                        >
+                            🚀 ゲームを開始する（ホスト権限）
+                        </button>
                     ) : (
-                        <button onClick={handleToggleReady} disabled={isRoomFull} style={{ padding: '12px 30px', fontSize: '1.1rem', backgroundColor: amIReady ? '#e53935' : '#ff9800', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>{amIReady ? '❌ 準備完了を取り消す' : '👍 準備完了！'}</button>
+                        <button
+                            onClick={handleToggleReady}
+                            disabled={isRoomFull}
+                            style={{ padding: '12px 30px', fontSize: '1.1rem', backgroundColor: isRoomFull ? '#999' : amIReady ? '#ff5722' : '#ff9800', color: 'white', border: 'none', borderRadius: '6px', cursor: isRoomFull ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                        >
+                            {amIReady ? '❌ 準備完了を取り消す' : '👍 準備完了！'}
+                        </button>
                     )}
                 </div>
             </div>
