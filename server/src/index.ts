@@ -253,7 +253,7 @@ io.on('connection', (socket) => {
             io.to(currentRoom).emit('earthquake_result', {
                 targetPlayerId: socket.id,
                 isEarthquake: true,
-                dangerLevel: finalDanger,
+                dangerLevel: Math.round(finalDanger * 100),
                 triggeredZone: activeZoneName,
                 message: isDead
                     ? `【脱落】${playerName} さんが ${activeZoneName} で限界を超え、大地震を引き起こしました！`
@@ -277,7 +277,7 @@ io.on('connection', (socket) => {
             io.to(currentRoom).emit('earthquake_result', {
                 targetPlayerId: socket.id,
                 isEarthquake: false,
-                dangerLevel: finalDanger,
+                dangerLevel: Math.round(finalDanger * 100),
                 triggeredZone: activeZoneName,
                 gainedScore,
                 message: successMessage,
