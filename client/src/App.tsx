@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, useMapEvents, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, useMapEvents, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LatLng } from 'leaflet';
 import { io, Socket } from 'socket.io-client';
@@ -50,6 +50,14 @@ function App() {
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const [pendingLocation, setPendingLocation] = useState<LatLng | null>(null);
 
+    const [plateData, setPlateData] = useState(null);
+
+    useEffect(() => {
+        fetch('/plates.json')
+            .then((res) => res.json())
+            .then((data) => setPlateData(data));
+    }, []);
+
     useEffect(() => {
         if (!isPlaying || !mode) return;
 
@@ -92,6 +100,7 @@ function App() {
 
         socket.on('error_message', (err: string) => {
             alert(err);
+            // eslint-disable-next-line react-hooks/immutability
             handleLeaveTitle();
         });
 
@@ -106,7 +115,7 @@ function App() {
         });
 
         return () => { socket.disconnect(); };
-    }, [isPlaying]);
+    }, [inputRoomCode, isPlaying, mode, name]);
 
     // ★ 修正: 地図クリック時はすぐに送信せず、モーダルを開く
     const handleMapClick = (latlng: LatLng) => {
@@ -358,6 +367,18 @@ function App() {
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 noWrap={true}
                             />
+
+                            {plateData && (
+                                <GeoJSON
+                                    data={plateData}
+                                    style={{
+                                        color: '#ffeb3b',
+                                        weight: 2,
+                                        opacity: 0.7
+                                    }}
+                                />
+                            )}
+
                             <MapClickHandler onClick={handleMapClick} disabled={!isMyTurn || isGameOver} />
                             {location && <CircleMarker center={location} radius={12} pathOptions={{ color: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillColor: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillOpacity: 0.5 }} />}
                         </MapContainer>
