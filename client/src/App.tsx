@@ -234,7 +234,8 @@ function App() {
                         🚪 タイトルに戻る
                     </button>
 
-                    {isHost ? (
+                    {/* 自分がプレイヤーリストの中で host かどうかを直接判定する（確実な方法） */}
+                    {players.find(p => p.id === socket?.id)?.isHost ? (
                         <button
                             onClick={handleStartGame}
                             disabled={isRoomFull}
@@ -246,7 +247,16 @@ function App() {
                         <button
                             onClick={handleToggleReady}
                             disabled={isRoomFull}
-                            style={{ padding: '12px 30px', fontSize: '1.1rem', backgroundColor: isRoomFull ? '#999' : amIReady ? '#ff5722' : '#ff9800', color: 'white', border: 'none', borderRadius: '6px', cursor: isRoomFull ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                            style={{
+                                padding: '12px 30px',
+                                fontSize: '1.1rem',
+                                backgroundColor: isRoomFull ? '#999' : amIReady ? '#e53935' : '#ff9800', // 準備完了時は赤、未完了はオレンジ
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: isRoomFull ? 'not-allowed' : 'pointer',
+                                fontWeight: 'bold'
+                            }}
                         >
                             {amIReady ? '❌ 準備完了を取り消す' : '👍 準備完了！'}
                         </button>
