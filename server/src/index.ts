@@ -240,7 +240,7 @@ io.on('connection', (socket) => {
         const isEarthquake = Math.random() < (finalDanger * (data.intensity / 100) * 1.5);
 
         // スコア計算：引っ張った量(intensity)が多いほど、そして危険地帯であるほど高得点！
-        const gainedScore = isEarthquake ? 0 : Math.round(data.intensity * (0.5 + maxDanger * 2));
+        const gainedScore = isEarthquake ? 0 : Math.round(data.intensity * (0.1 + maxDanger * 4));
 
         if (isEarthquake) {
             room.players = room.players.map(p => {
