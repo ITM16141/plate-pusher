@@ -18,20 +18,6 @@ const io = new Server(httpServer, {
 interface DangerZone {
     name: string; lat: number; lng: number; influenceRange: number;
 }
-const DANGER_ZONES: DangerZone[] = [
-    // 太平洋ベルトライン
-    { name: '日本海溝', lat: 38.0, lng: 142.0, influenceRange: 15.0 },
-    { name: '南海トラフ', lat: 32.0, lng: 135.0, influenceRange: 15.0 },
-    { name: 'アリューシャン列島', lat: 52.0, lng: -170.0, influenceRange: 15.0 },
-    { name: 'サンアンドレアス断層', lat: 36.0, lng: -120.0, influenceRange: 15.0 },
-    { name: 'チリ海溝', lat: -30.0, lng: -72.0, influenceRange: 20.0 },
-    { name: 'トンガ海溝', lat: -20.0, lng: 175.0, influenceRange: 20.0 },
-
-    // その他主要な場所
-    { name: 'ヒマラヤ造山帯', lat: 30.0, lng: 80.0, influenceRange: 15.0 },
-    { name: 'スマトラ沖', lat: -2.0, lng: 101.0, influenceRange: 15.0 },
-    { name: 'アイスランド（大西洋中央海嶺）', lat: 65.0, lng: -20.0, influenceRange: 15.0 },
-];
 
 interface Player {
     id: string;
@@ -50,6 +36,22 @@ interface Room {
     countdownTimer: NodeJS.Timeout | null;
     countdownSeconds: number;
 }
+
+const DANGER_ZONES: DangerZone[] = [
+    // 太平洋ベルトライン
+    { name: '日本海溝', lat: 38.0, lng: 142.0, influenceRange: 15.0 },
+    { name: '南海トラフ', lat: 32.0, lng: 135.0, influenceRange: 15.0 },
+    { name: 'アリューシャン列島', lat: 52.0, lng: -170.0, influenceRange: 15.0 },
+    { name: 'サンアンドレアス断層', lat: 36.0, lng: -120.0, influenceRange: 15.0 },
+    { name: 'チリ海溝', lat: -30.0, lng: -72.0, influenceRange: 20.0 },
+    { name: 'トンガ海溝', lat: -20.0, lng: 175.0, influenceRange: 20.0 },
+
+    // その他主要な場所
+    { name: 'ヒマラヤ造山帯', lat: 30.0, lng: 80.0, influenceRange: 15.0 },
+    { name: 'スマトラ沖', lat: -2.0, lng: 101.0, influenceRange: 15.0 },
+    { name: 'アイスランド（大西洋中央海嶺）', lat: 65.0, lng: -20.0, influenceRange: 15.0 },
+];
+
 const rooms: { [key: string]: Room } = {};
 
 function generateRoomCode(): string {
@@ -59,10 +61,9 @@ function generateRoomCode(): string {
 function sendRoomUpdate(roomCode: string) {
     const room = rooms[roomCode];
     if (!room) return;
-    const turnPlayerId = room.players[room.currentTurnIdx]?.id || '';
     io.to(roomCode).emit('room_players_updated', {
         players: room.players,
-        turnPlayerId,
+        turnPlayerId: room.players[room.currentTurnIdx]?.id || '',
         gameStarted: room.gameStarted,
         countdownSeconds: room.countdownSeconds
     });
@@ -239,7 +240,7 @@ io.on('connection', (socket) => {
         const isEarthquake = Math.random() < (finalDanger * (data.intensity / 100) * 1.5);
 
         // スコア計算：引っ張った量(intensity)が多いほど、そして危険地帯であるほど高得点！
-        const gainedScore = isEarthquake ? 0 : Math.round(data.intensity * (1 + maxDanger * 2));
+        const gainedScore = isEarthquake ? 0 : Math.round(data.intensity * (0.5 + maxDanger * 2));
 
         if (isEarthquake) {
             room.players = room.players.map(p => {
