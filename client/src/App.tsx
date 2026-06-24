@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, GeoJSON, useMapEvents, CircleMarker } from 'react-leaflet';
+import { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, useMapEvents, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LatLng } from 'leaflet';
 import { io, Socket } from 'socket.io-client';
+import { VectorGridLayer } from "./VectorGridLayer";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 let socket: Socket;
@@ -57,16 +58,6 @@ function App() {
             .then((res) => res.json())
             .then((data) => setPlateData(data));
     }, []);
-
-    const plateLayer = useMemo(() => {
-        if (!plateData) return null;
-        return (
-            <GeoJSON
-                data={plateData}
-                style={{ color: '#ffeb3b', weight: 2, opacity: 0.7 }}
-            />
-        );
-    }, [plateData]);
 
     useEffect(() => {
         if (!isPlaying || !mode) return;
@@ -379,7 +370,8 @@ function App() {
                                 noWrap={true}
                             />
 
-                            {plateLayer}
+                            {/* GeoJSONの代わりにこれを使う */}
+                            {plateData && <VectorGridLayer data={plateData} />}
 
                             <MapClickHandler onClick={handleMapClick} disabled={!isMyTurn || isGameOver} />
                             {location && <CircleMarker center={location} radius={12} pathOptions={{ color: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillColor: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillOpacity: 0.5 }} />}
