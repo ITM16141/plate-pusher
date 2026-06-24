@@ -127,7 +127,7 @@ io.on('connection', (socket) => {
                 countdownTimer: null,
                 countdownSeconds: 0
             };
-            socket.emit('init_room', { roomCode: 'SINGLE', isHost: true });
+            socket.emit('init_room', { roomCode: 'SINGLE', isHost: true, dangerZones: DANGER_ZONES });
             socket.emit('game_start_confirmed', { turnPlayerId: socket.id });
         } else {
             if (data.mode === 'random') {
@@ -168,7 +168,7 @@ io.on('connection', (socket) => {
             });
 
             socket.join(currentRoom);
-            socket.emit('init_room', { roomCode: currentRoom, isHost });
+            socket.emit('init_room', { roomCode: currentRoom, isHost, dangerZones: DANGER_ZONES });
 
             io.to(currentRoom).emit('system_message', `${playerName} さんが入室しました。`);
             sendRoomUpdate(currentRoom);

@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import 'leaflet.vectorgrid'; // プラグインをインポート
+import 'leaflet.vectorgrid';
 
 interface Props {
-    data: never; // GeoJSONデータ
+    data: any;
 }
 
 export function VectorGridLayer({ data }: Props) {
@@ -13,22 +13,21 @@ export function VectorGridLayer({ data }: Props) {
     useEffect(() => {
         if (!data) return;
 
-        // VectorGrid.slicer で GeoJSON をタイル状に分割して描画
-        const vectorGrid = L.vectorGrid.slicer(data, {
-            rendererFactory: L.canvas.tile, // キャンバスレンダラーを使用
+        // GeoJSONを切り分けてCanvasタイルとして高速描画
+        const vectorGrid = (L as any).vectorGrid.slicer(data, {
+            rendererFactory: (L as any).canvas.tile,
             vectorTileLayerStyles: {
                 sliced: {
-                    color: '#ffeb3b', // 境界線の色
-                    weight: 2,        // 線の太さ
-                    opacity: 0.7,
+                    color: '#ffeb3b',
+                    weight: 2,
+                    opacity: 0.6,
                 }
             },
-            interactive: true, // クリック判定を有効にする場合
+            interactive: false,
         });
 
         vectorGrid.addTo(map);
 
-        // クリーンアップ処理（アンマウント時にレイヤーを削除）
         return () => {
             map.removeLayer(vectorGrid);
         };

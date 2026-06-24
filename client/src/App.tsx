@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, useMapEvents, CircleMarker } from 'react-leaflet';
+import {MapContainer, TileLayer, useMapEvents, CircleMarker, Circle} from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LatLng } from 'leaflet';
 import { io, Socket } from 'socket.io-client';
 import { VectorGridLayer } from "./VectorGridLayer";
+import React from "react";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 let socket: Socket;
@@ -52,17 +53,23 @@ function App() {
     const [pendingLocation, setPendingLocation] = useState<LatLng | null>(null);
 
     const [plateData, setPlateData] = useState(null);
-
-    useEffect(() => {
-        fetch('/plates.json')
-            .then((res) => res.json())
-            .then((data) => setPlateData(data));
-    }, []);
+    const [dangerZones, setDangerZones] = useState<any[]>([]);
 
     useEffect(() => {
         if (!isPlaying || !mode) return;
 
+        fetch('/plates.json')
+            .then((res) => res.json())
+            .then((data) => setPlateData(data))
+            .catch((err) => console.error("プレートデータの読み込みに失敗しました:", err));
+
         socket = io(SERVER_URL);
+
+        socket.on('init_room', (data: { roomCode: string; isHost: boolean; dangerZones: any[] }) => {
+            if (data.dangerZones) {
+                setDangerZones(data.dangerZones);
+            }
+        });
 
         socket.on('connect', () => {
             setIsConnected(true);
@@ -372,6 +379,34 @@ function App() {
 
                             {/* GeoJSONの代わりにこれを使う */}
                             {plateData && <VectorGridLayer data={plateData} />}
+
+                            {dangerZones.map((z, i) => {
+                                // バックエンドの度数（influenceRange）を、フロント用のメートル（radius）にその場で換算
+                                const baseRadius = z.influenceRange * 111000;
+
+                                return (
+                                    <React.Fragment key={`zone-${i}`}>
+                                        {/* 外側：警戒エリア */}
+                                        <Circle
+                                            center={[z.lat, z.lng]}
+                                            radius={baseRadius}
+                                            pathOptions={{ color: '#ff9800', fillColor: '#ff9800', fillOpacity: 0.08, weight: 1.5, dashArray: '5, 10' }}
+                                        />
+                                        {/* 中間：危険エリア */}
+                                        <Circle
+                                            center={[z.lat, z.lng]}
+                                            radius={baseRadius * 0.6}
+                                            pathOptions={{ color: '#f44336', fillColor: '#f44336', fillOpacity: 0.18, stroke: false }}
+                                        />
+                                        {/* 中心：超危険エリア */}
+                                        <Circle
+                                            center={[z.lat, z.lng]}
+                                            radius={baseRadius * 0.25}
+                                            pathOptions={{ color: '#b71c1c', fillColor: '#d32f2f', fillOpacity: 0.45, stroke: false }}
+                                        />
+                                    </React.Fragment>
+                                );
+                            })}
 
                             <MapClickHandler onClick={handleMapClick} disabled={!isMyTurn || isGameOver} />
                             {location && <CircleMarker center={location} radius={12} pathOptions={{ color: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillColor: isGameOver && myLives <= 0 ? 'red' : '#00c853', fillOpacity: 0.5 }} />}
